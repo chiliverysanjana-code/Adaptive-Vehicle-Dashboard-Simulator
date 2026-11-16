@@ -1,69 +1,100 @@
-#include "header.h"
-void uart0_init(unsigned int baud){
-unsigned int result=0, pclk;
-if(VPBDIV==0x0) pclk=15000000;
-else if (VPBDIV==0x01) pclk=60000000;
-else if (VPBDIV==0x02) pclk=30000000;
-result=pclk/(16*baud);
-PINSEL0|=0x05;
-U0LCR=0x83;
-U0DLL=result&0xff;
-U0DLM=(result>>8)&0xff;
-U0LCR=0x03;
+#include<lpc21xx.h>
+#include"hiii.h"
+
+void uart0_init(unsigned int baud)
+{
+    unsigned int pclk,result=0;
+
+    if(VPBDIV==0x00)
+        pclk=15000000;
+    else if(VPBDIV==0x01)
+        pclk=60000000;
+    else if(VPBDIV==0x02)
+        pclk=30000000;
+
+    result=pclk/(16*baud);
+
+    PINSEL0|=0x05;
+    U0LCR=0x83;
+    U0DLL=result&0x0ff;
+    U0DLM=(result>>8)&0xff;
+    U0LCR=0x03;
 }
 
 #define THRE ((U0LSR>>5)&1)
-void uart0_tx(unsigned char data){
-	U0THR=data;
-	while(THRE==0);
+
+void uart0_tx(unsigned char data)
+{
+    U0THR=data;
+    while(THRE==0);
 }
 
 #define RDR (U0LSR&1)
-unsigned char uart0_rx(){
-	while(RDR==0);
-	return U0RBR;
-}
-void uart0_tx_string(char *ptr){
-	while(*ptr!=0){
-		uart0_tx(*ptr);
-		ptr++;
-	}
+
+unsigned char uart0_rx()
+{
+    while(RDR==0);
+    return U0THR;
 }
 
-void uart0_integer(int num){
-	int a[10],i=0;
-	if(num==0){
-		uart0_tx('0');
-		return;
-	}
-	if(num<0){
-		num=-num;
-		uart0_tx('-');
-	}
-	while(num>0){
-		a[i]=num%10+48;
-		num=num/10;
-		i++;
-	}
-	for(i=i-1;i>=0;i--){
-		uart0_tx(a[i]);
-	}
-}
-
-void uart0_float(float num){
-    int integer;
-		if(num==0){
-		uart0_tx_string("0.0");
-		return;
-		}
-    if (num < 0) {
-        uart0_tx('-');
-        num = -num;
+void uart0_string(char *p)
+{
+    while(*p)
+    {
+        uart0_tx(*p);
+        p++;
     }
-    integer=num;
-		uart0_integer(integer);
-		integer=(num-integer)*1000000;
-    uart0_tx('.');
-    uart0_integer(integer);
 }
 
+void uart0_int(int num)
+{
+    char a[20];
+    int i=0;
+
+    if(num==0)
+    {
+        uart0_tx('0');
+        return;
+    }
+
+    if(num<0)
+    {
+        uart0_tx('-');
+        num*=-1;
+    }
+
+    while(num)
+    {
+        a[i++]=num%10+48;
+        num/=10;
+    }
+
+    for(i--;i>=0;i--)
+    {
+        uart0_tx(a[i]);
+    }
+}
+
+void uart0_float(float num)
+{
+    int a;
+
+    if(num==0)
+    {
+        uart0_tx('0');
+        return;
+    }
+
+    if(num<0)
+    {
+        uart0_tx('-');
+        num*=-1;
+    }
+
+    a=num;
+    num=(num-a)*1000000;
+
+    uart0_int(a);
+    uart0_tx('.');
+    uart0_int(num);
+}
